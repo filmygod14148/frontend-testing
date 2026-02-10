@@ -88,8 +88,8 @@ const Dashboard = () => {
                         if (exists) return prev;
 
                         const newHistory = [...prev, latest];
-                        // Keep a reasonable window of history (e.g., last 100 points)
-                        return newHistory.slice(-100);
+                        // Keep a reasonable window of history (e.g., last 5000 points - effective for full day)
+                        return newHistory.slice(-5000);
                     });
                 }
             } else {
