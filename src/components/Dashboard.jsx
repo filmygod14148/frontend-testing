@@ -57,7 +57,7 @@ const Dashboard = () => {
 
                     // Build query params with date/time filters
                     let historyParams = `symbol=${symbol}`;
-                    
+
                     if (!forceFullFetch) {
                         historyParams += '&limit=25&trim=true';
                     }
@@ -105,7 +105,7 @@ const Dashboard = () => {
     useEffect(() => {
         setHistory([]); // Clear history on symbol change
         setPreviousData(null); // Reset previous data to force fetch
-        
+
         // Initial fetch (fast, restricted to 25 records)
         fetchData(false, false);
 
@@ -256,6 +256,13 @@ const Dashboard = () => {
                         <option value="BANKNIFTY">BANKNIFTY</option>
                         <option value="FINNIFTY">FINNIFTY</option>
                     </select>
+                    <button
+                        onClick={() => fetchData(false, true)}
+                        disabled={loading}
+                        className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+                    >
+                        Fetch All
+                    </button>
                     <button
                         onClick={() => { fetchData(); setTimeLeft(5); }}
                         disabled={loading}
