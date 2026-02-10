@@ -26,7 +26,7 @@ const Dashboard = () => {
     const [showClock, setShowClock] = useState(true); // Toggle clock
 
 
-    const fetchData = async (isBackground = false) => {
+    const fetchData = async (isBackground = false, forceFullFetch = false) => {
         if (!isBackground) setLoading(true);
         try {
             const API_BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -45,18 +45,22 @@ const Dashboard = () => {
                 (latest._id && previousData._id !== latest._id) ||
                 (latest.timestamp !== previousData.timestamp);
 
-            if (isNewData) {
+            if (isNewData || forceFullFetch) {
                 setCurrentData(latest);
                 const updateDate = new Date(latest.timestamp);
                 setLastUpdated(!isNaN(updateDate.getTime()) ? updateDate.toLocaleTimeString() : 'Invalid Date');
                 setPreviousData(latest);
 
-                // 2. Fetch history ONLY if we don't have it yet, or if it's a manual refresh
-                if (history.length === 0 || !isBackground) {
-                    console.log('Fetching initial history (limit 25, trimmed)...');
+                // 2. Fetch history ONLY if we don't have it yet, or if it's a manual refresh, or forced full fetch
+                if (history.length === 0 || !isBackground || forceFullFetch) {
+                    console.log(`Fetching history (forceFullFetch: ${forceFullFetch})...`);
 
                     // Build query params with date/time filters
-                    let historyParams = `symbol=${symbol}&limit=25&trim=true`;
+                    let historyParams = `symbol=${symbol}`;
+                    
+                    if (!forceFullFetch) {
+                        historyParams += '&limit=25&trim=true';
+                    }
 
                     // Add date filter if a specific date is selected
                     if (selectedDate) {
@@ -101,7 +105,17 @@ const Dashboard = () => {
     useEffect(() => {
         setHistory([]); // Clear history on symbol change
         setPreviousData(null); // Reset previous data to force fetch
-        fetchData(false);
+        
+        // Initial fetch (fast, restricted to 25 records)
+        fetchData(false, false);
+
+        // Delayed fetch (full data after 10 seconds)
+        const timer = setTimeout(() => {
+            console.log('Fetching full data after 10s delay...');
+            fetchData(false, true);
+        }, 10000);
+
+        return () => clearTimeout(timer);
     }, [symbol]);
 
     // Fetch data when filters change
