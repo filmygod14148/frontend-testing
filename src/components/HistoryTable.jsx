@@ -16,12 +16,38 @@ const HistoryTable = ({ historyData }) => {
         };
     });
 
-    // Deduplicate: Only keep records where ceTotal or peTotal changed from previous
+    // Deduplicate and calculate differences
     const processedData = allData.filter((entry, index) => {
-        if (index === 0) return true; // Always keep the first record
+        if (index === 0) return true;
         const prev = allData[index - 1];
         return entry.ceTotal !== prev.ceTotal || entry.peTotal !== prev.peTotal;
+    }).map((entry, index, filteredArray) => {
+        // Find the index of this entry in the original allData
+        const originalIndex = allData.findIndex(h => h.timestamp === entry.timestamp);
+
+        let ceDiff = 0;
+        let peDiff = 0;
+
+        if (originalIndex > 0) {
+            const prev = allData[originalIndex - 1];
+            ceDiff = entry.ceTotal - prev.ceTotal;
+            peDiff = entry.peTotal - prev.peTotal;
+        }
+
+        return { ...entry, ceDiff, peDiff };
     }).reverse(); // Latest first
+
+    const formatDiff = (diff) => {
+        if (diff === 0) return '-';
+        const sign = diff > 0 ? '+' : '';
+        return `${sign}${diff.toLocaleString()}`;
+    };
+
+    const getDiffColor = (diff) => {
+        if (diff > 0) return 'text-green-600';
+        if (diff < 0) return 'text-red-600';
+        return 'text-gray-400';
+    };
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -34,7 +60,9 @@ const HistoryTable = ({ historyData }) => {
                         <tr>
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                             <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total CE OI</th>
+                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">CE Change</th>
                             <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total PE OI</th>
+                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">PE Change</th>
                             <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PCR</th>
                         </tr>
                     </thead>
@@ -43,7 +71,13 @@ const HistoryTable = ({ historyData }) => {
                             <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 font-mono">{row.time}</td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-right text-red-600 font-semibold">{row.ceTotal.toLocaleString()}</td>
+                                <td className={`px-4 py-2 whitespace-nowrap text-sm text-right font-bold ${getDiffColor(row.ceDiff)}`}>
+                                    {formatDiff(row.ceDiff)}
+                                </td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-right text-teal-600 font-semibold">{row.peTotal.toLocaleString()}</td>
+                                <td className={`px-4 py-2 whitespace-nowrap text-sm text-right font-bold ${getDiffColor(row.peDiff)}`}>
+                                    {formatDiff(row.peDiff)}
+                                </td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-center font-bold">{row.pcr}</td>
                             </tr>
                         ))}
