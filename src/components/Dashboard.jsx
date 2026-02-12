@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import SnapshotTable from './SnapshotTable';
+import HistoryChart from './HistoryChart';
 
 const Dashboard = () => {
     const [symbol, setSymbol] = useState('NIFTY');
@@ -197,29 +198,6 @@ const Dashboard = () => {
         return `${year}-${month}-${day}`;
     });
 
-    // Prepare data for the chart
-    const rawChartData = (history || [])
-        .map(h => {
-            const timeValue = new Date(h.timestamp).getTime();
-            const time = Math.floor(timeValue / 1000);
-            return {
-                time: isNaN(time) ? null : time,
-                value: h.data?.records?.underlyingValue || 0,
-            };
-        })
-        .filter(d => d.time !== null && d.value > 0)
-        .sort((a, b) => a.time - b.time);
-
-    // Deduplicate timestamps (lightweight-charts requires strictly increasing time)
-    const chartData = [];
-    if (rawChartData.length > 0) {
-        chartData.push(rawChartData[0]);
-        for (let i = 1; i < rawChartData.length; i++) {
-            if (rawChartData[i].time > rawChartData[i - 1].time) {
-                chartData.push(rawChartData[i]);
-            }
-        }
-    }
 
     return (
         <div className="p-4 max-w-[1920px] mx-auto relative bg-[#f8fafc] min-h-screen">
@@ -344,6 +322,9 @@ const Dashboard = () => {
                                     </select>
                                 </div>
                             </div>
+                        </div>
+                        <div className="mb-6 h-[400px]">
+                            <HistoryChart historyData={history} />
                         </div>
                         <div className="overflow-x-auto">
                             <SnapshotTable historyData={history} selectedDate={selectedDate} timeFilter={timeFilter} strikeCount={strikeCount} />
