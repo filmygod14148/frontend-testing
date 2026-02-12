@@ -2,7 +2,7 @@ import React from 'react';
 
 const HistoryTable = ({ historyData }) => {
     // Process historyData to extract Total CE OI, Total PE OI, and PCR
-    const processedData = historyData.map(entry => {
+    const allData = historyData.map(entry => {
         const ceTotal = entry.data?.filtered?.CE?.totOI || 0;
         const peTotal = entry.data?.filtered?.PE?.totOI || 0;
         const pcr = ceTotal > 0 ? (peTotal / ceTotal).toFixed(2) : '0.00';
@@ -14,6 +14,13 @@ const HistoryTable = ({ historyData }) => {
             peTotal,
             pcr
         };
+    });
+
+    // Deduplicate: Only keep records where ceTotal or peTotal changed from previous
+    const processedData = allData.filter((entry, index) => {
+        if (index === 0) return true; // Always keep the first record
+        const prev = allData[index - 1];
+        return entry.ceTotal !== prev.ceTotal || entry.peTotal !== prev.peTotal;
     }).reverse(); // Latest first
 
     return (
