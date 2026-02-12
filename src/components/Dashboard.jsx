@@ -324,7 +324,12 @@ const Dashboard = () => {
                             </div>
                         </div>
                         <div className="mb-6">
-                            <HistoryTable historyData={history} />
+                            <HistoryTable
+                                historyData={history}
+                                selectedDate={selectedDate}
+                                timeFilter={timeFilter}
+                                strikeCount={strikeCount}
+                            />
                         </div>
                         <div className="overflow-x-auto">
                             <SnapshotTable historyData={history} selectedDate={selectedDate} timeFilter={timeFilter} strikeCount={strikeCount} />

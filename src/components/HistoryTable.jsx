@@ -1,40 +1,110 @@
 import React from 'react';
 
-const HistoryTable = ({ historyData }) => {
-    // Process historyData to extract Total CE OI, Total PE OI, and PCR
-    const allData = historyData.map(entry => {
+const HistoryTable = ({ historyData, selectedDate, timeFilter, strikeCount }) => {
+    const findClosestStrike = (price, step = 50) => {
+        return Math.round(price / step) * step;
+    };
+
+    // 1. Initial processing (Oldest to Newest)
+    let historyToProcess = [...historyData];
+
+    // 2. Date Filter
+    if (selectedDate) {
+        const [year, month, day] = selectedDate.split('-').map(Number);
+        const startOfDay = new Date(year, month - 1, day, 0, 0, 0);
+        const endOfDay = new Date(year, month - 1, day, 23, 59, 59);
+
+        historyToProcess = historyToProcess.filter(snapshot => {
+            const snapshotTime = new Date(snapshot.timestamp);
+            return snapshotTime >= startOfDay && snapshotTime <= endOfDay;
+        });
+    }
+
+    // 3. Time Filter
+    if (timeFilter && timeFilter !== 'all') {
+        const now = new Date();
+        const todayYear = now.getFullYear();
+        const todayMonth = String(now.getMonth() + 1).padStart(2, '0');
+        const todayDay = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
+
+        const isPastDate = selectedDate && selectedDate !== todayStr;
+
+        if (!isPastDate) {
+            const hoursMap = { '1h': 1, '3h': 3, '6h': 6 };
+            const hours = hoursMap[timeFilter] || 24;
+            const cutoffTime = new Date(now.getTime() - (hours * 60 * 60 * 1000));
+
+            historyToProcess = historyToProcess.filter(snapshot => {
+                const snapshotTime = new Date(snapshot.timestamp);
+                return snapshotTime >= cutoffTime;
+            });
+        }
+    }
+
+    // 4. Strike-based Deduplication (same as SnapshotTable)
+    let finalFiltered = [];
+    if (historyToProcess.length > 0) {
+        historyToProcess.forEach((currSnapshot) => {
+            if (finalFiltered.length === 0) {
+                finalFiltered.push(currSnapshot);
+                return;
+            }
+
+            const prevSnapshot = finalFiltered[finalFiltered.length - 1];
+            const spotPrice = currSnapshot.data?.records?.underlyingValue || 0;
+            const atmStrike = findClosestStrike(spotPrice, 50);
+
+            const range = (strikeCount - 1) / 2;
+            const strikesToCheck = [];
+            for (let i = -range; i <= range; i++) {
+                strikesToCheck.push(atmStrike + (i * 50));
+            }
+
+            let hasOIChange = false;
+            for (const strike of strikesToCheck) {
+                const currRecord = currSnapshot.data?.records?.data?.find(r => r.strikePrice === strike);
+                const prevRecord = prevSnapshot.data?.records?.data?.find(r => r.strikePrice === strike);
+
+                if ((currRecord?.CE?.openInterest || 0) !== (prevRecord?.CE?.openInterest || 0) ||
+                    (currRecord?.PE?.openInterest || 0) !== (prevRecord?.PE?.openInterest || 0)) {
+                    hasOIChange = true;
+                    break;
+                }
+            }
+
+            if (hasOIChange) {
+                finalFiltered.push(currSnapshot);
+            }
+        });
+    }
+
+    // 5. Final data extraction for display
+    const processedData = finalFiltered.map((entry, index) => {
         const ceTotal = entry.data?.filtered?.CE?.totOI || 0;
         const peTotal = entry.data?.filtered?.PE?.totOI || 0;
         const pcr = ceTotal > 0 ? (peTotal / ceTotal).toFixed(2) : '0.00';
+
+        // Find pre-deduplication predecessor in historyToProcess for change calculation
+        // Or simply compare with the previous entry in finalFiltered (which is what user sees)
+        const prevEntry = index > 0 ? finalFiltered[index - 1] : null;
+        let ceDiff = 0;
+        let peDiff = 0;
+
+        if (prevEntry) {
+            ceDiff = ceTotal - (prevEntry.data?.filtered?.CE?.totOI || 0);
+            peDiff = peTotal - (prevEntry.data?.filtered?.PE?.totOI || 0);
+        }
 
         return {
             timestamp: entry.timestamp,
             time: new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             ceTotal,
             peTotal,
-            pcr
+            pcr,
+            ceDiff,
+            peDiff
         };
-    });
-
-    // Deduplicate and calculate differences
-    const processedData = allData.filter((entry, index) => {
-        if (index === 0) return true;
-        const prev = allData[index - 1];
-        return entry.ceTotal !== prev.ceTotal || entry.peTotal !== prev.peTotal;
-    }).map((entry, index, filteredArray) => {
-        // Find the index of this entry in the original allData
-        const originalIndex = allData.findIndex(h => h.timestamp === entry.timestamp);
-
-        let ceDiff = 0;
-        let peDiff = 0;
-
-        if (originalIndex > 0) {
-            const prev = allData[originalIndex - 1];
-            ceDiff = entry.ceTotal - prev.ceTotal;
-            peDiff = entry.peTotal - prev.peTotal;
-        }
-
-        return { ...entry, ceDiff, peDiff };
     }).reverse(); // Latest first
 
     const formatDiff = (diff) => {
